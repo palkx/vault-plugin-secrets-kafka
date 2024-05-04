@@ -1,0 +1,7 @@
+# @format
+---
+quoteProps: as-needed
+proseWrap: always
+tabWidth: 2
+useTabs: false
+embeddedLanguageFormatting: auto

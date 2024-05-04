@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	username          = "vault-plugin-testing"
-	password          = "Testing!123"
+	username          = "root"
+	password          = "rootpassword"
 	bootstrap_servers = "kafka:29092"
 )
 
@@ -38,14 +38,14 @@ func TestConfig(t *testing.T) {
 
 		err = testConfigUpdate(t, b, reqStorage, map[string]interface{}{
 			"username":          username,
-			"bootstrap_servers": "kafka:29092",
+			"bootstrap_servers": "kafka:29093",
 		})
 
 		assert.NoError(t, err)
 
 		err = testConfigRead(t, b, reqStorage, map[string]interface{}{
 			"username":          username,
-			"bootstrap_servers": "kafka:29092",
+			"bootstrap_servers": "kafka:29093",
 		})
 
 		assert.NoError(t, err)

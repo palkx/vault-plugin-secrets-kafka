@@ -14,7 +14,7 @@ const (
 )
 
 // kafkaConfig includes the minimum configuration
-// required to instantiate a new HashiCups client.
+// required to instantiate a new kafkaConfig client.
 type kafkaConfig struct {
 	Username         string `json:"username"`
 	Password         string `json:"password"`
@@ -108,16 +108,16 @@ func (b *kafkaBackend) pathConfigWrite(ctx context.Context, req *logical.Request
 		config = new(kafkaConfig)
 	}
 
-	if username, ok := data.GetOk("username"); ok {
-		config.Username = username.(string)
-	} else if !ok && createOperation {
-		return nil, fmt.Errorf("missing username in configuration")
-	}
-
 	if bootstrap_servers, ok := data.GetOk("bootstrap_servers"); ok {
 		config.BootstrapServers = bootstrap_servers.(string)
 	} else if !ok && createOperation {
 		return nil, fmt.Errorf("missing bootstrap_servers in configuration")
+	}
+
+	if username, ok := data.GetOk("username"); ok {
+		config.Username = username.(string)
+	} else if !ok && createOperation {
+		return nil, fmt.Errorf("missing username in configuration")
 	}
 
 	if password, ok := data.GetOk("password"); ok {
@@ -180,14 +180,14 @@ func getConfig(ctx context.Context, s logical.Storage) (*kafkaConfig, error) {
 }
 
 // pathConfigHelpSynopsis summarizes the help text for the configuration
-const pathConfigHelpSynopsis = `Configure the HashiCups backend.`
+const pathConfigHelpSynopsis = `Configure the Kafka backend.`
 
 // pathConfigHelpDescription describes the help text for the configuration
 const pathConfigHelpDescription = `
-The HashiCups secret backend requires credentials for managing
+The Kafka secret backend requires credentials for managing
 JWTs issued to users working with the products API.
 
 You must sign up with a username and password and
-specify the HashiCups address for the products API
+specify the Kafka address for the products API
 before using this secrets backend.
 `

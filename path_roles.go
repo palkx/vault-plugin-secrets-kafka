@@ -13,18 +13,17 @@ import (
 // for a Vault role to access and call the Kafka
 // token endpoints
 type kafkaRoleEntry struct {
-	Username string        `json:"username"`
-	Password string        `json:"password"`
-	TTL      time.Duration `json:"ttl"`
-	MaxTTL   time.Duration `json:"max_ttl"`
+	UsernamePrefix string        `json:"username_prefix"`
+	TTL            time.Duration `json:"ttl"`
+	MaxTTL         time.Duration `json:"max_ttl"`
 }
 
 // toResponseData returns response data for a role
 func (r *kafkaRoleEntry) toResponseData() map[string]interface{} {
 	respData := map[string]interface{}{
-		"ttl":      r.TTL.Seconds(),
-		"max_ttl":  r.MaxTTL.Seconds(),
-		"username": r.Username,
+		"ttl":             r.TTL.Seconds(),
+		"max_ttl":         r.MaxTTL.Seconds(),
+		"username_prefix": r.UsernamePrefix,
 	}
 	return respData
 }
@@ -44,10 +43,9 @@ func pathRole(b *kafkaBackend) []*framework.Path {
 					Description: "Name of the role",
 					Required:    true,
 				},
-				"username": {
+				"username_prefix": {
 					Type:        framework.TypeString,
-					Description: "The username for the Kafka product API",
-					Required:    true,
+					Description: "The username for the Kafka product API. Will match role name if not set.",
 				},
 				"ttl": {
 					Type:        framework.TypeDurationSecond,
@@ -170,10 +168,10 @@ func (b *kafkaBackend) pathRolesWrite(ctx context.Context, req *logical.Request,
 
 	createOperation := (req.Operation == logical.CreateOperation)
 
-	if username, ok := d.GetOk("username"); ok {
-		roleEntry.Username = username.(string)
+	if usernamePrefix, ok := d.GetOk("username_prefix"); ok {
+		roleEntry.UsernamePrefix = usernamePrefix.(string)
 	} else if !ok && createOperation {
-		return nil, fmt.Errorf("missing username in role")
+		roleEntry.UsernamePrefix = name.(string)
 	}
 
 	if ttlRaw, ok := d.GetOk("ttl"); ok {

@@ -43,38 +43,44 @@ func (b *kafkaBackend) pathCredentialsExistenceCheck(ctx context.Context, req *l
 	return out != nil, nil
 }
 
-func (b *kafkaBackend) createToken(ctx context.Context, s logical.Storage, roleEntry *kafkaRoleEntry) (*kafkaToken, error) {
+func (b *kafkaBackend) createCredentials(ctx context.Context, s logical.Storage, roleEntry *kafkaRoleEntry) (*kafkaCredential, error) {
 	client, err := b.getClient(ctx, s)
+	// defer func() {
+	// 	defer_err := client.Close()
+	// 	if defer_err != nil && err == nil {
+	// 		err = defer_err
+	// 	}
+	// }()
 	if err != nil {
 		return nil, err
 	}
 
-	var token *kafkaToken
+	var credential *kafkaCredential
 
-	token, err = createToken(ctx, client, roleEntry.Username)
+	credential, err = createCredential(ctx, client, roleEntry.UsernamePrefix)
 	if err != nil {
 		return nil, fmt.Errorf("error creating Kafka token: %w", err)
 	}
 
-	if token == nil {
+	if credential == nil {
 		return nil, errors.New("error creating Kafka token")
 	}
 
-	return token, nil
+	return credential, nil
 }
 
 func (b *kafkaBackend) createUserCreds(ctx context.Context, req *logical.Request, role *kafkaRoleEntry) (*logical.Response, error) {
-	token, err := b.createToken(ctx, req.Storage, role)
+	credential, err := b.createCredentials(ctx, req.Storage, role)
 	if err != nil {
 		return nil, err
 	}
 
-	resp := b.Secret(kafkaTokenType).Response(map[string]interface{}{
-		"token":    token.Token,
-		"token_id": token.TokenID,
-		"username": token.Username,
+	resp := b.Secret(kafkaCredentialType).Response(map[string]interface{}{
+		"password": credential.Password,
+		"username": credential.Username,
 	}, map[string]interface{}{
-		"token": token.Token,
+		"password": credential.Password,
+		"username": credential.Username,
 	})
 
 	if role.TTL > 0 {

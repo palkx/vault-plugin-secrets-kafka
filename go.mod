@@ -3,12 +3,13 @@ module github.com/palkx/vault-plugin-secrets-kafka
 go 1.22.2
 
 require (
-	github.com/confluentinc/confluent-kafka-go/v2 v2.3.0
+	github.com/IBM/sarama v1.43.2
 	github.com/google/uuid v1.6.0
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/vault/api v1.13.0
 	github.com/hashicorp/vault/sdk v0.12.0
 	github.com/stretchr/testify v1.9.0
+	github.com/xdg-go/scram v1.1.2
 )
 
 require (
@@ -16,12 +17,14 @@ require (
 	github.com/armon/go-metrics v0.4.1 // indirect
 	github.com/armon/go-radix v1.0.0 // indirect
 	github.com/cenkalti/backoff/v3 v3.2.2 // indirect
-	github.com/containerd/log v0.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/docker/distribution v2.8.2+incompatible // indirect
 	github.com/docker/docker v24.0.7+incompatible // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
+	github.com/eapache/go-resiliency v1.6.0 // indirect
+	github.com/eapache/go-xerial-snappy v0.0.0-20230731223053-c322873962e3 // indirect
+	github.com/eapache/queue v1.1.0 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/fatih/color v1.16.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.1 // indirect
@@ -47,7 +50,13 @@ require (
 	github.com/hashicorp/golang-lru v0.5.4 // indirect
 	github.com/hashicorp/hcl v1.0.1-vault-5 // indirect
 	github.com/hashicorp/yamux v0.1.1 // indirect
+	github.com/jcmturner/aescts/v2 v2.0.0 // indirect
+	github.com/jcmturner/dnsutils/v2 v2.0.0 // indirect
+	github.com/jcmturner/gofork v1.7.6 // indirect
+	github.com/jcmturner/gokrb5/v8 v8.4.4 // indirect
+	github.com/jcmturner/rpc/v2 v2.0.3 // indirect
 	github.com/joshlf/go-acl v0.0.0-20200411065538-eae00ae38531 // indirect
+	github.com/klauspost/compress v1.17.8 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mitchellh/copystructure v1.2.0 // indirect
@@ -60,15 +69,19 @@ require (
 	github.com/opencontainers/image-spec v1.1.0-rc2.0.20221005185240-3a7f492d3f1b // indirect
 	github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5 // indirect
 	github.com/pierrec/lz4 v2.6.1+incompatible // indirect
+	github.com/pierrec/lz4/v4 v4.1.21 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
+	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/sasha-s/go-deadlock v0.2.0 // indirect
+	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
+	github.com/xdg-go/stringprep v1.0.4 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
-	golang.org/x/crypto v0.21.0 // indirect
+	golang.org/x/crypto v0.22.0 // indirect
 	golang.org/x/mod v0.11.0 // indirect
-	golang.org/x/net v0.22.0 // indirect
-	golang.org/x/sys v0.18.0 // indirect
+	golang.org/x/net v0.24.0 // indirect
+	golang.org/x/sys v0.19.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	golang.org/x/tools v0.10.0 // indirect

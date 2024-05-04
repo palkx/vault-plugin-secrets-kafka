@@ -16,6 +16,7 @@ const (
 	envVarKafkaUsername         = "TEST_KAFKA_USERNAME"
 	envVarKafkaPassword         = "TEST_KAFKA_PASSWORD"
 	envVarKafkaBootstrapServers = "TEST_KAFKA_BOOTSTRAP_SERVERS"
+	envVarKafkaUsernamePrefix   = "TEST_KAFKA_USERNAME_PREFIX"
 )
 
 // getTestBackend will help you construct a test backend object.
@@ -45,6 +46,7 @@ var runAcceptanceTests = os.Getenv(envVarRunAccTests) == "1"
 // resources
 type testEnv struct {
 	Username         string
+	UsernamePrefix   string
 	Password         string
 	BootstrapServers string
 
@@ -86,7 +88,7 @@ func (e *testEnv) AddUserTokenRole(t *testing.T) {
 		Path:      "role/test-user-token",
 		Storage:   e.Storage,
 		Data: map[string]interface{}{
-			"username": e.Username,
+			"username_prefix": e.UsernamePrefix,
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)

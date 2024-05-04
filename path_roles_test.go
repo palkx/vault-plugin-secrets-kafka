@@ -10,9 +10,10 @@ import (
 )
 
 const (
-	roleName   = "testhashicups"
-	testTTL    = int64(120)
-	testMaxTTL = int64(3600)
+	usernamePrefix = "testkafkarole"
+	roleName       = "testkafkarole"
+	testTTL        = int64(120)
+	testMaxTTL     = int64(3600)
 )
 
 // TestUserRole uses a mock backend to check
@@ -25,9 +26,9 @@ func TestUserRole(t *testing.T) {
 			_, err := testTokenRoleCreate(t, b, s,
 				roleName+strconv.Itoa(i),
 				map[string]interface{}{
-					"username": username,
-					"ttl":      testTTL,
-					"max_ttl":  testMaxTTL,
+					"username_prefix": usernamePrefix,
+					"ttl":             testTTL,
+					"max_ttl":         testMaxTTL,
 				})
 			require.NoError(t, err)
 		}
@@ -39,9 +40,9 @@ func TestUserRole(t *testing.T) {
 
 	t.Run("Create User Role - pass", func(t *testing.T) {
 		resp, err := testTokenRoleCreate(t, b, s, roleName, map[string]interface{}{
-			"username": username,
-			"ttl":      testTTL,
-			"max_ttl":  testMaxTTL,
+			"username_prefix": usernamePrefix,
+			"ttl":             testTTL,
+			"max_ttl":         testMaxTTL,
 		})
 
 		require.Nil(t, err)
@@ -55,7 +56,7 @@ func TestUserRole(t *testing.T) {
 		require.Nil(t, err)
 		require.Nil(t, resp.Error())
 		require.NotNil(t, resp)
-		require.Equal(t, resp.Data["username"], username)
+		require.Equal(t, resp.Data["username_prefix"], usernamePrefix)
 	})
 	t.Run("Update User Role", func(t *testing.T) {
 		resp, err := testTokenRoleUpdate(t, b, s, map[string]interface{}{
@@ -74,7 +75,7 @@ func TestUserRole(t *testing.T) {
 		require.Nil(t, err)
 		require.Nil(t, resp.Error())
 		require.NotNil(t, resp)
-		require.Equal(t, resp.Data["username"], username)
+		require.Equal(t, resp.Data["username_prefix"], usernamePrefix)
 	})
 
 	t.Run("Delete User Role", func(t *testing.T) {

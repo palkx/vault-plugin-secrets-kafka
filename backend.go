@@ -51,7 +51,7 @@ func backend() *kafkaBackend {
 			},
 		),
 		Secrets: []*framework.Secret{
-			b.kafkaToken(),
+			b.kafkaCredential(),
 		},
 		BackendType:    logical.TypeLogical,
 		Invalidate:     b.invalidate,

@@ -30,6 +30,7 @@ func newAcceptanceTestEnv() (*testEnv, error) {
 	}
 	return &testEnv{
 		Username:         os.Getenv(envVarKafkaUsername),
+		UsernamePrefix:   os.Getenv(envVarKafkaUsernamePrefix),
 		Password:         os.Getenv(envVarKafkaPassword),
 		BootstrapServers: os.Getenv(envVarKafkaBootstrapServers),
 		Backend:          b,
