@@ -1,5 +1,6 @@
 builds:
-  - binary: "{{ .ProjectName }}_v{{ .Version }}"
+  - binary: "kafka"
+    main: ./cmd/vault-plugin-secrets-kafka/
     env:
       - CGO_ENABLED=0
     goos:
