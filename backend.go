@@ -82,13 +82,24 @@ func (b *kafkaBackend) invalidate(ctx context.Context, key string) {
 func (b *kafkaBackend) getClient(ctx context.Context, s logical.Storage) (*kafkaClient, error) {
 	b.lock.RLock()
 	unlockFunc := b.lock.RUnlock
+	clientAlive := true
 	defer func() { unlockFunc() }()
 
 	if b.client != nil {
-		return b.client, nil
+		_, _, err := b.client.DescribeCluster()
+		if err == nil {
+			return b.client, nil
+		}
+		clientAlive = false
 	}
 
 	b.lock.RUnlock()
+
+	if !clientAlive {
+		b.client.Close()
+		b.reset()
+	}
+
 	b.lock.Lock()
 	unlockFunc = b.lock.Unlock
 

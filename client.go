@@ -70,9 +70,6 @@ func newClient(config *kafkaConfig) (*kafkaClient, error) {
 	brokers := strings.Split(config.BootstrapServers, ",")
 
 	kafkaConf := sarama.NewConfig()
-	kafkaConf.Producer.Retry.Max = 1
-	kafkaConf.Producer.RequiredAcks = sarama.WaitForAll
-	kafkaConf.Producer.Return.Successes = true
 	kafkaConf.Version = sarama.V3_5_1_0
 	kafkaConf.ClientID = "vault_sasl_scram_client"
 	kafkaConf.Metadata.Full = true

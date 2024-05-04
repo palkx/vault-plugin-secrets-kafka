@@ -53,7 +53,7 @@ func deleteCredential(ctx context.Context, c *kafkaClient, username string) erro
 		},
 	})
 	if err != nil {
-		return fmt.Errorf("error creating Kafka credentials: %w", err)
+		return fmt.Errorf("error revoking Kafka credentials: %w", err)
 	}
 
 	return nil
@@ -76,7 +76,7 @@ func (b *kafkaBackend) credentialRevoke(ctx context.Context, req *logical.Reques
 	}
 
 	if err := deleteCredential(ctx, client, username); err != nil {
-		return nil, fmt.Errorf("error revoking user credentials: %w", err)
+		return nil, err
 	}
 
 	return nil, nil
