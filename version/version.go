@@ -1,12 +1,23 @@
 package version
 
-import "fmt"
-
-const Version = "0.0.1"
-
 var (
-	Name      string
-	GitCommit string
-
-	HumanVersion = fmt.Sprintf("%s v%s (%s)", Name, Version, GitCommit)
+	version = "0.0.1"
+	commit  = "snapshot"
+	date    = "unknown"
 )
+
+func Version() string {
+	return version
+}
+
+func Commit() string {
+	return commit
+}
+
+func Date() string {
+	return date
+}
+
+func Build() string {
+	return version + "+" + commit
+}

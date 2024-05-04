@@ -62,7 +62,7 @@ services:
         # apk add git gcc libc-dev
         cd /app
         rm -rf docker/vault/plugins/vault-plugin-secrets-kafka
-        CGO_ENABLED=0 go build -tags musl -ldflags "-s -w -X main.Version=$${GIT_TAG_NAME}" -o docker/vault/plugins/vault-plugin-secrets-kafka cmd/vault-plugin-secrets-kafka/main.go
+        CGO_ENABLED=0 go build -tags musl -ldflags "-s -w -X version.version=$${GIT_TAG_NAME}" -o docker/vault/plugins/vault-plugin-secrets-kafka cmd/vault-plugin-secrets-kafka/main.go
     volumes:
       - ./:/app
       - cache:/go/pkg/mod

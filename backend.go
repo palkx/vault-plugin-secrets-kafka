@@ -7,7 +7,8 @@ import (
 
 	"github.com/hashicorp/vault/sdk/framework"
 	"github.com/hashicorp/vault/sdk/logical"
-	"github.com/palkx/vault-plugin-secrets-kafka/version"
+
+	version "github.com/palkx/vault-plugin-secrets-kafka/version"
 )
 
 // Factory returns a new backend as logical.Backend
@@ -55,7 +56,7 @@ func backend() *kafkaBackend {
 		},
 		BackendType:    logical.TypeLogical,
 		Invalidate:     b.invalidate,
-		RunningVersion: "v" + version.Version,
+		RunningVersion: "v" + version.Build(),
 	}
 	return &b
 }
