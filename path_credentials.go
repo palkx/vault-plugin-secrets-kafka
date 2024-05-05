@@ -45,12 +45,6 @@ func (b *kafkaBackend) pathCredentialsExistenceCheck(ctx context.Context, req *l
 
 func (b *kafkaBackend) createCredentials(ctx context.Context, s logical.Storage, roleEntry *kafkaRoleEntry) (*kafkaCredential, error) {
 	client, err := b.getClient(ctx, s)
-	// defer func() {
-	// 	defer_err := client.Close()
-	// 	if defer_err != nil && err == nil {
-	// 		err = defer_err
-	// 	}
-	// }()
 	if err != nil {
 		return nil, err
 	}
@@ -59,11 +53,11 @@ func (b *kafkaBackend) createCredentials(ctx context.Context, s logical.Storage,
 
 	credential, err = createCredential(ctx, client, roleEntry.UsernamePrefix)
 	if err != nil {
-		return nil, fmt.Errorf("error creating Kafka token: %w", err)
+		return nil, fmt.Errorf("error creating Kafka credential: %w", err)
 	}
 
 	if credential == nil {
-		return nil, errors.New("error creating Kafka token")
+		return nil, errors.New("error creating Kafka credential")
 	}
 
 	return credential, nil

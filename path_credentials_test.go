@@ -29,10 +29,13 @@ func newAcceptanceTestEnv() (*testEnv, error) {
 		return nil, err
 	}
 	return &testEnv{
-		Username:         os.Getenv(envVarKafkaUsername),
-		UsernamePrefix:   os.Getenv(envVarKafkaUsernamePrefix),
-		Password:         os.Getenv(envVarKafkaPassword),
 		BootstrapServers: os.Getenv(envVarKafkaBootstrapServers),
+		Username:         os.Getenv(envVarKafkaUsername),
+		Password:         os.Getenv(envVarKafkaPassword),
+		CABundle:         os.Getenv(envVarKafkaCaBundle),
+		Certificate:      os.Getenv(envVarKafkaCertificate),
+		CertificateKey:   os.Getenv(envVarKafkaCertificateKey),
+		UsernamePrefix:   os.Getenv(envVarKafkaUsernamePrefix),
 		Backend:          b,
 		Context:          ctx,
 		Storage:          &logical.InmemStorage{},
@@ -53,7 +56,7 @@ func TestAcceptanceUserToken(t *testing.T) {
 
 	t.Run("add config", acceptanceTestEnv.AddConfig)
 	t.Run("add user token role", acceptanceTestEnv.AddUserTokenRole)
-	t.Run("read user token cred", acceptanceTestEnv.ReadUserToken)
-	t.Run("read user token cred", acceptanceTestEnv.ReadUserToken)
-	t.Run("cleanup user tokens", acceptanceTestEnv.CleanupUserTokens)
+	t.Run("read user token cred", acceptanceTestEnv.ReadUserCredential)
+	t.Run("read user token cred", acceptanceTestEnv.ReadUserCredential)
+	t.Run("cleanup user tokens", acceptanceTestEnv.CleanupUserCredential)
 }
