@@ -1,8 +1,8 @@
 ---
 x-kafka-env: &kafka-env
   KAFKA_NODE_ID: 1
-  KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:SASL_SSL,SSL:SASL_SSL"
-  KAFKA_ADVERTISED_LISTENERS: "SSL://kafka:29092"
+  KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:SASL_SSL,SSL:SASL_SSL,LOCAL:SASL_SSL"
+  KAFKA_ADVERTISED_LISTENERS: "SSL://kafka:29092,LOCAL://127.0.0.1:29091"
   KAFKA_CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: "kafka:9092"
   KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
   KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
@@ -10,7 +10,7 @@ x-kafka-env: &kafka-env
   KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
   KAFKA_PROCESS_ROLES: "broker,controller"
   KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:29093"
-  KAFKA_LISTENERS: "SSL://kafka:29092,CONTROLLER://kafka:29093"
+  KAFKA_LISTENERS: "LOCAL://0.0.0.0:29091,SSL://0.0.0.0:29092,CONTROLLER://kafka:29093"
   KAFKA_INTER_BROKER_LISTENER_NAME: "SSL"
   KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
   KAFKA_LOG_DIRS: "/var/lib/kafka/data"
@@ -21,6 +21,13 @@ x-kafka-env: &kafka-env
   KAFKA_SSL_TRUSTSTORE_CREDENTIALS: truststore-pass
   KAFKA_SSL_CLIENT_AUTH: required
   KAFKA_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: https
+  KAFKA_LOCAL_KEYSTORE_FILENAME: keystore.jks
+  KAFKA_LOCAL_KEYSTORE_CREDENTIALS: keystore-pass
+  KAFKA_LOCAL_KEY_CREDENTIALS: keystore-pass
+  KAFKA_LOCAL_TRUSTSTORE_FILENAME: truststore.jks
+  KAFKA_LOCAL_TRUSTSTORE_CREDENTIALS: truststore-pass
+  KAFKA_LOCAL_CLIENT_AUTH: required
+  KAFKA_LOCAL_ENDPOINT_IDENTIFICATION_ALGORITHM: https
   KAFKA_CONTROLLER_KEYSTORE_FILENAME: keystore.jks
   KAFKA_CONTROLLER_KEYSTORE_CREDENTIALS: keystore-pass
   KAFKA_CONTROLLER_KEY_CREDENTIALS: keystore-pass
@@ -31,6 +38,7 @@ x-kafka-env: &kafka-env
 
   KAFKA_SECURITY_PROTOCOL: SASL_SSL
   KAFKA_SSL_ENABLED_MECHANISMS: SASL_SSL
+  KAFKA_LOCAL_ENABLED_MECHANISMS: SASL_SSL
   KAFKA_CONTROLLER_ENABLED_MECHANISMS: SASL_SSL
 
   KAFKA_SASL_MECHANISM_INTER_BROKER_PROTOCOL: SCRAM-SHA-512
@@ -42,6 +50,11 @@ x-kafka-env: &kafka-env
 
   KAFKA_LISTENER_NAME_SSL_SASL_ENABLED_MECHANISMS: SCRAM-SHA-512
   KAFKA_LISTENER_NAME_SSL_SCRAM-SHA-512_SASL_JAAS_CONFIG:
+    org.apache.kafka.common.security.scram.ScramLoginModule required
+    username="root" password="rootpassword";
+
+  KAFKA_LISTENER_NAME_LOCAL_SASL_ENABLED_MECHANISMS: SCRAM-SHA-512
+  KAFKA_LISTENER_NAME_LOCAL_SCRAM-SHA-512_SASL_JAAS_CONFIG:
     org.apache.kafka.common.security.scram.ScramLoginModule required
     username="root" password="rootpassword";
 
@@ -90,9 +103,9 @@ services:
           openssl req -new -key ca-key.pem -x509 -out ca.pem -days 3650 -subj '/CN=Local CA/OU=Dev/O=Local CA/L=Melbourne/ST=VIC/C=AU' -passin pass:confluent -passout pass:confluent
 
           # Generate certificate request
-          openssl req -passin "pass:confluent" -passout "pass:confluent" -new -nodes -newkey rsa:4096 -keyout kafka-key.pem -out kafka.req -batch -config <(printf "[req]\ndistinguished_name = req_distinguished_name\nreq_extensions = v3_req\nprompt = no\n[req_distinguished_name]\nC = US\nST = VA\nL = SomeCity\nO = LOCAL\nOU = IT\nCN = kafka\n[v3_req]\nkeyUsage = keyEncipherment, dataEncipherment\nextendedKeyUsage = serverAuth\nsubjectAltName = @alt_names\n[alt_names]\nDNS.1 = kafka\nIP.1 = 127.0.0.1\n")
+          openssl req -passin "pass:confluent" -passout "pass:confluent" -new -nodes -newkey rsa:4096 -keyout kafka-key.pem -out kafka.req -batch -config <(printf "[req]\ndistinguished_name = req_distinguished_name\nreq_extensions = v3_req\nprompt = no\n[req_distinguished_name]\nC = US\nST = VA\nL = SomeCity\nO = LOCAL\nOU = IT\nCN = kafka\n[v3_req]\nkeyUsage = keyEncipherment, dataEncipherment\nextendedKeyUsage = serverAuth\nsubjectAltName = @alt_names\n[alt_names]\nDNS.1 = kafka\nDNS.2 = localhost\nIP.1 = 127.0.0.1\n")
           # Generate certificate
-          openssl x509 -req -in kafka.req -CA ca.pem -CAkey ca-key.pem -passin "pass:confluent" -CAcreateserial -out kafka.pem -days 3650 -sha256 -extfile <(printf "subjectAltName=DNS:kafka,IP:127.0.0.1")
+          openssl x509 -req -in kafka.req -CA ca.pem -CAkey ca-key.pem -passin "pass:confluent" -CAcreateserial -out kafka.pem -days 3650 -sha256 -extfile <(printf "subjectAltName=DNS:kafka,DNS:localhost,IP:127.0.0.1")
 
           cat kafka.pem ca.pem > bundle.pem
 
@@ -106,6 +119,7 @@ services:
 
           printf "ssl.key.password=confluent\nssl.truststore.password=confluent\nssl.keystore.password=confluent\nssl.keystore.location=/etc/kafka/secrets/keystore.jks\nssl.truststore.location=/etc/kafka/secrets/truststore.jks\nssl.endpoint.identification.algorithm=https\nsecurity.protocol=SASL_SSL\nsasl.mechanism=SCRAM-SHA-512\nsasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username=\"root\" password=\"rootpassword\";\n" > /etc/kafka/secrets/client.properties
           ls -la
+
           cd -
         fi
 
@@ -123,7 +137,7 @@ services:
     networks:
       - private
     ports:
-      - 127.0.0.1:29092:29092/tcp
+      - 127.0.0.1:29091:29091/tcp
     healthcheck:
       test:
         - "CMD"

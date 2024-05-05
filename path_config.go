@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 
@@ -16,9 +17,12 @@ const (
 // kafkaConfig includes the minimum configuration
 // required to instantiate a new kafkaConfig client.
 type kafkaConfig struct {
+	BootstrapServers string `json:"bootstrap_servers"`
 	Username         string `json:"username"`
 	Password         string `json:"password"`
-	BootstrapServers string `json:"bootstrap_servers"`
+	CABundle         string `json:"ca_bundle"`
+	Certificate      string `json:"certificate"`
+	CertificateKey   string `json:"certificate_key"`
 }
 
 // pathConfig extends the Vault API with a `/config`
@@ -31,6 +35,15 @@ func pathConfig(b *kafkaBackend) *framework.Path {
 	return &framework.Path{
 		Pattern: "config",
 		Fields: map[string]*framework.FieldSchema{
+			"bootstrap_servers": {
+				Type:        framework.TypeString,
+				Description: "The Bootstrap servers for Kafka",
+				Required:    true,
+				DisplayAttrs: &framework.DisplayAttributes{
+					Name:      "Bootstrap Servers",
+					Sensitive: false,
+				},
+			},
 			"username": {
 				Type:        framework.TypeString,
 				Description: "The username to access Kafka",
@@ -49,13 +62,31 @@ func pathConfig(b *kafkaBackend) *framework.Path {
 					Sensitive: true,
 				},
 			},
-			"bootstrap_servers": {
+			"ca_bundle": {
 				Type:        framework.TypeString,
-				Description: "The Bootstrap servers for Kafka",
-				Required:    true,
+				Description: "CA certificates to trust for Kafka. Must be provided as Base64 encoded PEM.",
+				Required:    false,
 				DisplayAttrs: &framework.DisplayAttributes{
-					Name:      "Bootstrap Servers",
+					Name:      "CA Bundle",
 					Sensitive: false,
+				},
+			},
+			"certificate": {
+				Type:        framework.TypeString,
+				Description: "Client certificate for Kafka. Must be provided as Base64 encoded PEM.",
+				Required:    false,
+				DisplayAttrs: &framework.DisplayAttributes{
+					Name:      "Certificate",
+					Sensitive: false,
+				},
+			},
+			"certificate_key": {
+				Type:        framework.TypeString,
+				Description: "Client certificate key for Kafka. Must be provided as Base64 encoded PEM.",
+				Required:    false,
+				DisplayAttrs: &framework.DisplayAttributes{
+					Name:      "Certificate Key",
+					Sensitive: true,
 				},
 			},
 		},
@@ -87,8 +118,10 @@ func (b *kafkaBackend) pathConfigRead(ctx context.Context, req *logical.Request,
 
 	return &logical.Response{
 		Data: map[string]interface{}{
-			"username":          config.Username,
 			"bootstrap_servers": config.BootstrapServers,
+			"username":          config.Username,
+			"ca_bundle":         config.CABundle,
+			"certificate":       config.Certificate,
 		},
 	}, nil
 }
@@ -124,6 +157,38 @@ func (b *kafkaBackend) pathConfigWrite(ctx context.Context, req *logical.Request
 		config.Password = password.(string)
 	} else if !ok && createOperation {
 		return nil, fmt.Errorf("missing password in configuration")
+	}
+
+	if caBundle, ok := data.GetOk("ca_bundle"); ok {
+		_, err := base64.StdEncoding.DecodeString(caBundle.(string))
+		if err != nil {
+			return nil, fmt.Errorf("unable to decode ca_bundle: %s", err)
+		}
+		config.CABundle = caBundle.(string)
+	}
+
+	if certificate, ok := data.GetOk("certificate"); ok {
+		_, err := base64.StdEncoding.DecodeString(certificate.(string))
+		if err != nil {
+			return nil, fmt.Errorf("unable to decode certificate: %s", err)
+		}
+		config.Certificate = certificate.(string)
+	}
+
+	if certificateKey, ok := data.GetOk("certificate_key"); ok {
+		_, err := base64.StdEncoding.DecodeString(certificateKey.(string))
+		if err != nil {
+			return nil, fmt.Errorf("unable to decode certificate key: %s", err)
+		}
+		config.CertificateKey = certificateKey.(string)
+	}
+
+	if config.Certificate != "" && config.CertificateKey == "" {
+		return nil, fmt.Errorf("if certificate is set, certificate_key must also be set")
+	}
+
+	if config.CertificateKey != "" && config.Certificate == "" {
+		return nil, fmt.Errorf("if certificate is set, certificate_key must also be set")
 	}
 
 	entry, err := logical.StorageEntryJSON(configStoragePath, config)

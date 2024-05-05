@@ -10,9 +10,12 @@ import (
 )
 
 const (
-	username          = "root"
-	password          = "rootpassword"
-	bootstrap_servers = "kafka:29092"
+	bootstrapServers = "kafka:29092"
+	username         = "root"
+	password         = "rootpassword"
+	caBundle         = "test"
+	certificate      = "test"
+	certificateKey   = "test"
 )
 
 // TestConfig mocks the creation, read, update, and delete
@@ -22,16 +25,18 @@ func TestConfig(t *testing.T) {
 
 	t.Run("Test Configuration", func(t *testing.T) {
 		err := testConfigCreate(t, b, reqStorage, map[string]interface{}{
+			"bootstrap_servers": bootstrapServers,
 			"username":          username,
 			"password":          password,
-			"bootstrap_servers": bootstrap_servers,
 		})
 
 		assert.NoError(t, err)
 
 		err = testConfigRead(t, b, reqStorage, map[string]interface{}{
+			"bootstrap_servers": bootstrapServers,
 			"username":          username,
-			"bootstrap_servers": bootstrap_servers,
+			"ca_bundle":         "",
+			"certificate":       "",
 		})
 
 		assert.NoError(t, err)
@@ -46,6 +51,57 @@ func TestConfig(t *testing.T) {
 		err = testConfigRead(t, b, reqStorage, map[string]interface{}{
 			"username":          username,
 			"bootstrap_servers": "kafka:29093",
+			"ca_bundle":         "",
+			"certificate":       "",
+		})
+
+		assert.NoError(t, err)
+
+		err = testConfigDelete(t, b, reqStorage)
+
+		assert.NoError(t, err)
+
+		err = testConfigCreate(t, b, reqStorage, map[string]interface{}{
+			"username":          username,
+			"bootstrap_servers": bootstrapServers,
+			"ca_bundle":         "test test",
+		})
+
+		assert.Error(t, err)
+
+		err = testConfigCreate(t, b, reqStorage, map[string]interface{}{
+			"username":          username,
+			"bootstrap_servers": bootstrapServers,
+			"ca_bundle":         "1234",
+		})
+
+		assert.Error(t, err)
+
+		err = testConfigCreate(t, b, reqStorage, map[string]interface{}{
+			"username":          username,
+			"bootstrap_servers": bootstrapServers,
+			"ca_bundle":         caBundle,
+			"certificate":       certificate,
+		})
+
+		assert.Error(t, err)
+
+		err = testConfigCreate(t, b, reqStorage, map[string]interface{}{
+			"username":          username,
+			"password":          password,
+			"bootstrap_servers": bootstrapServers,
+			"ca_bundle":         caBundle,
+			"certificate":       certificate,
+			"certificate_key":   certificateKey,
+		})
+
+		assert.NoError(t, err)
+
+		err = testConfigRead(t, b, reqStorage, map[string]interface{}{
+			"username":          username,
+			"bootstrap_servers": bootstrapServers,
+			"ca_bundle":         caBundle,
+			"certificate":       certificate,
 		})
 
 		assert.NoError(t, err)

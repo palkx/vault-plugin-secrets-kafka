@@ -1,4 +1,6 @@
 docker/vault/config/tls/*
 !docker/vault/config/tls/.gitkeep
 docker/vault/plugins/*
+secrets/
+!secrets/.gitkeep
 notes.md

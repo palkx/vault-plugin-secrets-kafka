@@ -2,7 +2,6 @@ package kafka
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"testing"
 
@@ -12,10 +11,14 @@ import (
 )
 
 const (
-	envVarRunAccTests           = "VAULT_ACC"
+	envVarRunAccTests = "VAULT_ACC"
+
+	envVarKafkaBootstrapServers = "TEST_KAFKA_BOOTSTRAP_SERVERS"
 	envVarKafkaUsername         = "TEST_KAFKA_USERNAME"
 	envVarKafkaPassword         = "TEST_KAFKA_PASSWORD"
-	envVarKafkaBootstrapServers = "TEST_KAFKA_BOOTSTRAP_SERVERS"
+	envVarKafkaCaBundle         = "TEST_KAFKA_CA_BUNDLE"
+	envVarKafkaCertificate      = "TEST_KAFKA_CERTIFICATE"
+	envVarKafkaCertificateKey   = "TEST_KAFKA_CERTIFICATE_KEY"
 	envVarKafkaUsernamePrefix   = "TEST_KAFKA_USERNAME_PREFIX"
 )
 
@@ -45,20 +48,20 @@ var runAcceptanceTests = os.Getenv(envVarRunAccTests) == "1"
 // testEnv creates an object to store and track testing environment
 // resources
 type testEnv struct {
-	Username         string
-	UsernamePrefix   string
-	Password         string
 	BootstrapServers string
+	Username         string
+	Password         string
+	CABundle         string
+	Certificate      string
+	CertificateKey   string
+	UsernamePrefix   string
 
 	Backend logical.Backend
 	Context context.Context
 	Storage logical.Storage
 
-	// SecretToken tracks the API token, for checking rotations
-	SecretToken string
-
-	// Tokens tracks the generated tokens, to make sure we clean up
-	Tokens []string
+	// Credentials tracks the generated tokens, to make sure we clean up
+	Credentials []string
 }
 
 // AddConfig adds the configuration to the test backend.
@@ -70,9 +73,12 @@ func (e *testEnv) AddConfig(t *testing.T) {
 		Path:      "config",
 		Storage:   e.Storage,
 		Data: map[string]interface{}{
+			"bootstrap_servers": e.BootstrapServers,
 			"username":          e.Username,
 			"password":          e.Password,
-			"bootstrap_servers": e.BootstrapServers,
+			"ca_bundle":         e.CABundle,
+			"certificate":       e.Certificate,
+			"certificate_key":   e.CertificateKey,
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)
@@ -81,7 +87,7 @@ func (e *testEnv) AddConfig(t *testing.T) {
 }
 
 // AddUserTokenRole adds a role for the Kafka
-// user token.
+// user credential.
 func (e *testEnv) AddUserTokenRole(t *testing.T) {
 	req := &logical.Request{
 		Operation: logical.UpdateOperation,
@@ -96,9 +102,9 @@ func (e *testEnv) AddUserTokenRole(t *testing.T) {
 	require.Nil(t, err)
 }
 
-// ReadUserToken retrieves the user token
+// ReadUserToken retrieves the user credential
 // based on a Vault role.
-func (e *testEnv) ReadUserToken(t *testing.T) {
+func (e *testEnv) ReadUserCredential(t *testing.T) {
 	req := &logical.Request{
 		Operation: logical.ReadOperation,
 		Path:      "creds/test-user-token",
@@ -108,40 +114,31 @@ func (e *testEnv) ReadUserToken(t *testing.T) {
 	require.Nil(t, err)
 	require.NotNil(t, resp)
 
-	if t, ok := resp.Data["token"]; ok {
-		e.Tokens = append(e.Tokens, t.(string))
-	}
-	require.NotEmpty(t, resp.Data["token"])
-
-	if e.SecretToken != "" {
-		require.NotEqual(t, e.SecretToken, resp.Data["token"])
+	if t, ok := resp.Data["username"]; ok {
+		e.Credentials = append(e.Credentials, t.(string))
 	}
 
-	// collect secret IDs to revoke at end of test
-	require.NotNil(t, resp.Secret)
-	if t, ok := resp.Secret.InternalData["token"]; ok {
-		e.SecretToken = t.(string)
-	}
+	require.NotEmpty(t, resp.Data["username"])
+	require.NotEmpty(t, resp.Data["password"])
 }
 
 // CleanupUserTokens removes the tokens
 // when the test completes.
-func (e *testEnv) CleanupUserTokens(t *testing.T) {
-	if len(e.Tokens) == 0 {
-		t.Fatalf("expected 2 tokens, got: %d", len(e.Tokens))
+func (e *testEnv) CleanupUserCredential(t *testing.T) {
+	if len(e.Credentials) == 0 {
+		t.Fatalf("expected 2 credentials, got: %d", len(e.Credentials))
 	}
 
-	for _, token := range e.Tokens {
-		fmt.Printf("revoke token: %s (not implemented yet)", token)
-		// TODO: implement this
-		// b := e.Backend.(*kafkaBackend)
-		// client, err := b.getClient(e.Context, e.Storage)
-		// if err != nil {
-		// 	t.Fatal("fatal getting client")
-		// }
-		// client.Client.Token = string(token)
-		// if err := client.SignOut(); err != nil {
-		// 	t.Fatalf("unexpected error deleting user token: %s", err)
-		// }
+	for _, credential := range e.Credentials {
+		b := e.Backend.(*kafkaBackend)
+		client, err := b.getClient(e.Context, e.Storage)
+		if err != nil {
+			t.Fatal("fatal getting client")
+		}
+
+		err = deleteCredential(e.Context, client, credential)
+		if err != nil {
+			t.Fatalf("error revoking Kafka credentials: %s", err)
+		}
 	}
 }

@@ -13,41 +13,53 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3.2.0
+        uses: actions/checkout@v4
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
           go-version: 1.22.x
-      - run: make test
+      - uses: actions/cache@v3.3.1
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go
+      - name: "Run tests"
+        run: |
+          go install github.com/jstemmer/go-junit-report/v2@v2.1.0
+          make test | tee results | go-junit-report -set-exit-code > report.xml
+          cat results
+      - name: Test Summary
+        uses: test-summary/action@v2
+        with:
+          paths: "report.xml"
+        if: always()
 
-  # acctest:
-  #   runs-on: ubuntu-latest
+  acctest:
+    runs-on: ubuntu-latest
 
-  #   steps:
-  #     - name: Checkout
-  #       uses: actions/checkout@v3.2.0
-  #     - name: Set up Go
-  #       uses: actions/setup-go@v3
-  #       with:
-  #         go-version: 1.22.x
-  #     - uses: actions/cache@v3.3.1
-  #       with:
-  #         path: ~/go/pkg/mod
-  #         key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
-  #         restore-keys: |
-  #           ${{ runner.os }}-go
-  #     - name: Bring up kafka
-  #       run: docker-compose up kafka -d
-  #     - name: "Run tests"
-  #       run: |
-  #         export PATH=$PATH:$(go env GOPATH)/bin # temporary fix. See https://github.com/actions/setup-go/issues/14
-  #         go install github.com/jstemmer/go-junit-report@v0.9.1
-  #         trap "go-junit-report < go-test.out > go-test-report.xml" EXIT
-  #         make testacc | tee go-test.out
-  #     - name: Upload test results
-  #       uses: actions/upload-artifact@v2.3.1
-  #       with:
-  #         name: acc-test-results.xml
-  #         path: go-test-report.xml
-  #       # Use always() to always run this step to publish test results when there are test failures
-  #       if: always()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 1.22.x
+      - uses: actions/cache@v3.3.1
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go
+      - name: Bring up kafka
+        run: make upkafka
+      - name: "Run tests"
+        run: |
+          go install github.com/jstemmer/go-junit-report/v2@v2.1.0
+          make testacc | tee results | go-junit-report -set-exit-code > report.xml
+          cat results
+      - name: Test Summary
+        uses: test-summary/action@v2
+        with:
+          paths: "report.xml"
+        if: always()
