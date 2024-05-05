@@ -89,7 +89,6 @@ services:
     volumes:
       - kafka-data:/var/lib/kafka/data:rw
       - kafka-secrets:/etc/kafka/secrets:rw
-      - ./secrets:/secrets:rw
     entrypoint: ["/bin/bash", "-c"]
     environment:
       <<: *kafka-env
@@ -120,10 +119,7 @@ services:
 
           printf "ssl.key.password=confluent\nssl.truststore.password=confluent\nssl.keystore.password=confluent\nssl.keystore.location=/etc/kafka/secrets/keystore.jks\nssl.truststore.location=/etc/kafka/secrets/truststore.jks\nssl.endpoint.identification.algorithm=https\nsecurity.protocol=SASL_SSL\nsasl.mechanism=SCRAM-SHA-512\nsasl.jaas.config=org.apache.kafka.common.security.scram.ScramLoginModule required username=\"root\" password=\"rootpassword\";\n" > /etc/kafka/secrets/client.properties
           ls -la
-          
-          mkdir -p /secrets/kafka
-          rm -rf /secrets/kafka/*
-          cp -r * /secrets/kafka/
+
           cd -
         fi
 
