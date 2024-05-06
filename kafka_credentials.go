@@ -17,8 +17,9 @@ const (
 
 // kafkaCredentials defines a secret for the Kafka credentials
 type kafkaCredential struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
+	Username        string `json:"username"`
+	Password        string `json:"password"`
+	ScramSHAVersion string `json:"scram_sha_version"`
 }
 
 // kafkaCredentials defines a secret to store for a given role
@@ -35,21 +36,35 @@ func (b *kafkaBackend) kafkaCredential() *framework.Secret {
 				Type:        framework.TypeString,
 				Description: "Kafka User Password",
 			},
+			"scram_sha_version": {
+				Type:        framework.TypeString,
+				Description: "Kafka Credential SCRAM SHA Version",
+			},
 		},
 		Revoke: b.credentialRevoke,
 		Renew:  b.credentialRenew,
 	}
 }
 
-func deleteCredential(ctx context.Context, c *kafkaClient, username string) error {
+func deleteCredential(ctx context.Context, c *kafkaClient, username string, scramSHAVersion string) error {
 	if username == "" {
 		return fmt.Errorf("recieved empty username for credential deletion")
+	}
+
+	if scramSHAVersion != SCRAMSHA512 && scramSHAVersion != SCRAMSHA256 {
+		return fmt.Errorf("invalid scram_sha_version for credential deletion. Can be %s, %s but recieved %s", SCRAMSHA256, SCRAMSHA512, scramSHAVersion)
+	}
+
+	mechanism := sarama.SCRAM_MECHANISM_SHA_512
+
+	if scramSHAVersion == SCRAMSHA256 {
+		mechanism = sarama.SCRAM_MECHANISM_SHA_256
 	}
 
 	_, err := c.DeleteUserScramCredentials([]sarama.AlterUserScramCredentialsDelete{
 		{
 			Name:      username,
-			Mechanism: sarama.SCRAM_MECHANISM_SHA_512,
+			Mechanism: mechanism,
 		},
 	})
 	if err != nil {
@@ -75,22 +90,36 @@ func (b *kafkaBackend) credentialRevoke(ctx context.Context, req *logical.Reques
 		}
 	}
 
-	if err := deleteCredential(ctx, client, username); err != nil {
+	scramSHAVersion := ""
+	scramSHAVersionRaw, ok := req.Secret.InternalData["scram_sha_version"]
+	if ok {
+		scramSHAVersion, ok = scramSHAVersionRaw.(string)
+		if !ok {
+			return nil, fmt.Errorf("invalid value for scram_sha_version in secret internal data")
+		}
+	}
+
+	if err := deleteCredential(ctx, client, username, scramSHAVersion); err != nil {
 		return nil, err
 	}
 
 	return nil, nil
 }
 
-func createCredential(ctx context.Context, c *kafkaClient, usernamePrefix string) (*kafkaCredential, error) {
-	username := usernamePrefix + "-credential-" + uuid.New().String()
+func createCredential(ctx context.Context, c *kafkaClient, roleEntry *kafkaRoleEntry) (*kafkaCredential, error) {
+	username := roleEntry.UsernamePrefix + "-credential-" + uuid.New().String()
 	password := uuid.New().String()
 	salt := uuid.New().String()
+	mechanism := sarama.SCRAM_MECHANISM_SHA_512
+
+	if roleEntry.ScramSHAVersion == SCRAMSHA256 {
+		mechanism = sarama.SCRAM_MECHANISM_SHA_256
+	}
 
 	_, err := c.UpsertUserScramCredentials([]sarama.AlterUserScramCredentialsUpsert{
 		{
 			Name:       username,
-			Mechanism:  sarama.SCRAM_MECHANISM_SHA_512,
+			Mechanism:  mechanism,
 			Iterations: 8192,
 			Salt:       []byte(salt),
 			Password:   []byte(password),
@@ -101,8 +130,9 @@ func createCredential(ctx context.Context, c *kafkaClient, usernamePrefix string
 	}
 
 	return &kafkaCredential{
-		Username: username,
-		Password: password,
+		Username:        username,
+		Password:        password,
+		ScramSHAVersion: roleEntry.ScramSHAVersion,
 	}, nil
 }
 

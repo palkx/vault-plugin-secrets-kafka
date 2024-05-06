@@ -12,6 +12,8 @@ import (
 
 const (
 	configStoragePath = "config"
+	SCRAMSHA256       = "256"
+	SCRAMSHA512       = "512"
 )
 
 // kafkaConfig includes the minimum configuration
@@ -23,6 +25,7 @@ type kafkaConfig struct {
 	CABundle         string `json:"ca_bundle"`
 	Certificate      string `json:"certificate"`
 	CertificateKey   string `json:"certificate_key"`
+	ScramSHAVersion  string `json:"scram_sha_version"`
 }
 
 // pathConfig extends the Vault API with a `/config`
@@ -89,6 +92,15 @@ func pathConfig(b *kafkaBackend) *framework.Path {
 					Sensitive: true,
 				},
 			},
+			"scram_sha_version": {
+				Type:        framework.TypeString,
+				Description: fmt.Sprintf("SCRAM SHA Version to use. Possible values are: %s, %s. Defaults to %s.", SCRAMSHA256, SCRAMSHA512, SCRAMSHA512),
+				Required:    false,
+				DisplayAttrs: &framework.DisplayAttributes{
+					Name:      "SCRAM SHA Version",
+					Sensitive: false,
+				},
+			},
 		},
 		Operations: map[logical.Operation]framework.OperationHandler{
 			logical.ReadOperation: &framework.PathOperation{
@@ -122,6 +134,7 @@ func (b *kafkaBackend) pathConfigRead(ctx context.Context, req *logical.Request,
 			"username":          config.Username,
 			"ca_bundle":         config.CABundle,
 			"certificate":       config.Certificate,
+			"scram_sha_version": config.ScramSHAVersion,
 		},
 	}, nil
 }
@@ -157,6 +170,15 @@ func (b *kafkaBackend) pathConfigWrite(ctx context.Context, req *logical.Request
 		config.Password = password.(string)
 	} else if !ok && createOperation {
 		return nil, fmt.Errorf("missing password in configuration")
+	}
+
+	if scramSHAVersion, ok := data.GetOk("scram_sha_version"); ok {
+		if scramSHAVersion.(string) != SCRAMSHA256 && scramSHAVersion.(string) != SCRAMSHA512 {
+			return nil, fmt.Errorf("invalid scram_sha_version. Possible values are: %s, %s, but received: %s", SCRAMSHA256, SCRAMSHA512, scramSHAVersion.(string))
+		}
+		config.ScramSHAVersion = scramSHAVersion.(string)
+	} else if !ok && createOperation {
+		config.ScramSHAVersion = SCRAMSHA512
 	}
 
 	if caBundle, ok := data.GetOk("ca_bundle"); ok {

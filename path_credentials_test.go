@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"testing"
 	"time"
@@ -29,16 +30,18 @@ func newAcceptanceTestEnv() (*testEnv, error) {
 		return nil, err
 	}
 	return &testEnv{
-		BootstrapServers: os.Getenv(envVarKafkaBootstrapServers),
-		Username:         os.Getenv(envVarKafkaUsername),
-		Password:         os.Getenv(envVarKafkaPassword),
-		CABundle:         os.Getenv(envVarKafkaCaBundle),
-		Certificate:      os.Getenv(envVarKafkaCertificate),
-		CertificateKey:   os.Getenv(envVarKafkaCertificateKey),
-		UsernamePrefix:   os.Getenv(envVarKafkaUsernamePrefix),
-		Backend:          b,
-		Context:          ctx,
-		Storage:          &logical.InmemStorage{},
+		BootstrapServers:      os.Getenv(envVarKafkaBootstrapServers),
+		Username:              os.Getenv(envVarKafkaUsername),
+		Password:              os.Getenv(envVarKafkaPassword),
+		CABundle:              os.Getenv(envVarKafkaCaBundle),
+		Certificate:           os.Getenv(envVarKafkaCertificate),
+		CertificateKey:        os.Getenv(envVarKafkaCertificateKey),
+		UsernamePrefix:        os.Getenv(envVarKafkaUsernamePrefix),
+		ConfigScramSHAVersion: SCRAMSHA512,
+		RoleScramSHAVersion:   SCRAMSHA512,
+		Backend:               b,
+		Context:               ctx,
+		Storage:               &logical.InmemStorage{},
 	}, nil
 }
 
@@ -54,9 +57,20 @@ func TestAcceptanceUserToken(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	t.Run("add config", acceptanceTestEnv.AddConfig)
-	t.Run("add user token role", acceptanceTestEnv.AddUserTokenRole)
-	t.Run("read user token cred", acceptanceTestEnv.ReadUserCredential)
-	t.Run("read user token cred", acceptanceTestEnv.ReadUserCredential)
-	t.Run("cleanup user tokens", acceptanceTestEnv.CleanupUserCredential)
+	t.Run(fmt.Sprintf("add config with scram %s", acceptanceTestEnv.RoleScramSHAVersion), acceptanceTestEnv.AddConfig)
+	t.Run(fmt.Sprintf("add user credential role with scram %s", acceptanceTestEnv.RoleScramSHAVersion), acceptanceTestEnv.AddUserTokenRole)
+	for i := 0; i < 10; i++ {
+		t.Run(fmt.Sprintf("read user credential with scram %s %d/10", acceptanceTestEnv.RoleScramSHAVersion, i+1), acceptanceTestEnv.ReadUserCredential)
+	}
+	t.Run(fmt.Sprintf("cleanup user credentials with scram %s", acceptanceTestEnv.RoleScramSHAVersion), acceptanceTestEnv.CleanupUserCredential)
+	t.Run(fmt.Sprintf("delete config with scram %s", acceptanceTestEnv.RoleScramSHAVersion), acceptanceTestEnv.DeleteConfig)
+
+	acceptanceTestEnv.RoleScramSHAVersion = SCRAMSHA256
+	t.Run(fmt.Sprintf("add config with scram %s", acceptanceTestEnv.RoleScramSHAVersion), acceptanceTestEnv.AddConfig)
+	t.Run(fmt.Sprintf("add user credential role with scram %s", acceptanceTestEnv.RoleScramSHAVersion), acceptanceTestEnv.AddUserTokenRole)
+	for i := 0; i < 10; i++ {
+		t.Run(fmt.Sprintf("read user credential with scram %s %d/10", acceptanceTestEnv.RoleScramSHAVersion, i+1), acceptanceTestEnv.ReadUserCredential)
+	}
+	t.Run(fmt.Sprintf("cleanup user credentials with scram %s", acceptanceTestEnv.RoleScramSHAVersion), acceptanceTestEnv.CleanupUserCredential)
+	t.Run(fmt.Sprintf("delete config with scram %s", acceptanceTestEnv.RoleScramSHAVersion), acceptanceTestEnv.DeleteConfig)
 }

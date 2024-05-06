@@ -91,8 +91,15 @@ func newClient(config *kafkaConfig) (*kafkaClient, error) {
 	kafkaConf.Net.SASL.User = config.Username
 	kafkaConf.Net.SASL.Password = config.Password
 	kafkaConf.Net.SASL.Handshake = true
-	kafkaConf.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA512} }
-	kafkaConf.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA512
+
+	switch scramSHAVersion := config.ScramSHAVersion; scramSHAVersion {
+	case SCRAMSHA256:
+		kafkaConf.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA256} }
+		kafkaConf.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA256
+	case SCRAMSHA512:
+		kafkaConf.Net.SASL.SCRAMClientGeneratorFunc = func() sarama.SCRAMClient { return &XDGSCRAMClient{HashGeneratorFcn: SHA512} }
+		kafkaConf.Net.SASL.Mechanism = sarama.SASLTypeSCRAMSHA512
+	}
 
 	if config.CABundle != "" || config.Certificate != "" {
 		kafkaConf.Net.TLS.Enable = true

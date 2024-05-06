@@ -13,17 +13,19 @@ import (
 // for a Vault role to access and call the Kafka
 // token endpoints
 type kafkaRoleEntry struct {
-	UsernamePrefix string        `json:"username_prefix"`
-	TTL            time.Duration `json:"ttl"`
-	MaxTTL         time.Duration `json:"max_ttl"`
+	UsernamePrefix  string        `json:"username_prefix"`
+	ScramSHAVersion string        `json:"scram_sha_version"`
+	TTL             time.Duration `json:"ttl"`
+	MaxTTL          time.Duration `json:"max_ttl"`
 }
 
 // toResponseData returns response data for a role
 func (r *kafkaRoleEntry) toResponseData() map[string]interface{} {
 	respData := map[string]interface{}{
-		"ttl":             r.TTL.Seconds(),
-		"max_ttl":         r.MaxTTL.Seconds(),
-		"username_prefix": r.UsernamePrefix,
+		"username_prefix":   r.UsernamePrefix,
+		"scram_sha_version": r.ScramSHAVersion,
+		"ttl":               r.TTL.Seconds(),
+		"max_ttl":           r.MaxTTL.Seconds(),
 	}
 	return respData
 }
@@ -46,6 +48,10 @@ func pathRole(b *kafkaBackend) []*framework.Path {
 				"username_prefix": {
 					Type:        framework.TypeString,
 					Description: "The username for the Kafka product API. Will match role name if not set.",
+				},
+				"scram_sha_version": {
+					Type:        framework.TypeString,
+					Description: fmt.Sprintf("Scram SHA Version to use for created credentials. Can be %s, %s. By default it will be set to the backends default value.", SCRAMSHA256, SCRAMSHA512),
 				},
 				"ttl": {
 					Type:        framework.TypeDurationSecond,
@@ -172,6 +178,19 @@ func (b *kafkaBackend) pathRolesWrite(ctx context.Context, req *logical.Request,
 		roleEntry.UsernamePrefix = usernamePrefix.(string)
 	} else if !ok && createOperation {
 		roleEntry.UsernamePrefix = name.(string)
+	}
+
+	if scramSHAVersion, ok := d.GetOk("scram_sha_version"); ok {
+		if scramSHAVersion.(string) != SCRAMSHA256 && scramSHAVersion.(string) != SCRAMSHA512 {
+			return nil, fmt.Errorf("invalid scram_sha_version. Possible values are: %s, %s, but received: %s", SCRAMSHA256, SCRAMSHA512, scramSHAVersion.(string))
+		}
+		roleEntry.ScramSHAVersion = scramSHAVersion.(string)
+	} else if !ok && createOperation {
+		config, err := getConfig(ctx, req.Storage)
+		if err != nil {
+			return nil, err
+		}
+		roleEntry.ScramSHAVersion = config.ScramSHAVersion
 	}
 
 	if ttlRaw, ok := d.GetOk("ttl"); ok {

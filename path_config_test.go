@@ -16,6 +16,7 @@ const (
 	caBundle         = "test"
 	certificate      = "test"
 	certificateKey   = "test"
+	scramSHAVersion  = SCRAMSHA512
 )
 
 // TestConfig mocks the creation, read, update, and delete
@@ -37,6 +38,7 @@ func TestConfig(t *testing.T) {
 			"username":          username,
 			"ca_bundle":         "",
 			"certificate":       "",
+			"scram_sha_version": scramSHAVersion,
 		})
 
 		assert.NoError(t, err)
@@ -53,6 +55,7 @@ func TestConfig(t *testing.T) {
 			"bootstrap_servers": "kafka:29093",
 			"ca_bundle":         "",
 			"certificate":       "",
+			"scram_sha_version": scramSHAVersion,
 		})
 
 		assert.NoError(t, err)
@@ -60,8 +63,10 @@ func TestConfig(t *testing.T) {
 		err = testConfigDelete(t, b, reqStorage)
 
 		assert.NoError(t, err)
+	})
 
-		err = testConfigCreate(t, b, reqStorage, map[string]interface{}{
+	t.Run("Test Certificate Configuration", func(t *testing.T) {
+		err := testConfigCreate(t, b, reqStorage, map[string]interface{}{
 			"username":          username,
 			"bootstrap_servers": bootstrapServers,
 			"ca_bundle":         "test test",
@@ -102,6 +107,67 @@ func TestConfig(t *testing.T) {
 			"bootstrap_servers": bootstrapServers,
 			"ca_bundle":         caBundle,
 			"certificate":       certificate,
+			"scram_sha_version": scramSHAVersion,
+		})
+
+		assert.NoError(t, err)
+
+		err = testConfigDelete(t, b, reqStorage)
+
+		assert.NoError(t, err)
+	})
+	t.Run("Test SCRAM SHA Configuration", func(t *testing.T) {
+		err := testConfigCreate(t, b, reqStorage, map[string]interface{}{
+			"bootstrap_servers": bootstrapServers,
+			"username":          username,
+			"password":          password,
+			"scram_sha_version": "1",
+		})
+
+		assert.Error(t, err)
+		err = testConfigCreate(t, b, reqStorage, map[string]interface{}{
+			"bootstrap_servers": bootstrapServers,
+			"username":          username,
+			"password":          password,
+			"scram_sha_version": "128",
+		})
+
+		assert.Error(t, err)
+
+		err = testConfigCreate(t, b, reqStorage, map[string]interface{}{
+			"bootstrap_servers": bootstrapServers,
+			"username":          username,
+			"password":          password,
+		})
+
+		assert.NoError(t, err)
+
+		err = testConfigRead(t, b, reqStorage, map[string]interface{}{
+			"username":          username,
+			"bootstrap_servers": bootstrapServers,
+			"ca_bundle":         "",
+			"certificate":       "",
+			"scram_sha_version": scramSHAVersion,
+		})
+
+		assert.NoError(t, err)
+
+		err = testConfigUpdate(t, b, reqStorage, map[string]interface{}{
+			"username":          username,
+			"bootstrap_servers": bootstrapServers,
+			"ca_bundle":         "",
+			"certificate":       "",
+			"scram_sha_version": SCRAMSHA256,
+		})
+
+		assert.NoError(t, err)
+
+		err = testConfigRead(t, b, reqStorage, map[string]interface{}{
+			"username":          username,
+			"bootstrap_servers": bootstrapServers,
+			"ca_bundle":         "",
+			"certificate":       "",
+			"scram_sha_version": SCRAMSHA256,
 		})
 
 		assert.NoError(t, err)
