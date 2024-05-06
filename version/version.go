@@ -1,7 +1,7 @@
 package version
 
 var (
-	version = "0.0.1"
+	version = "0.0.2"
 	commit  = "snapshot"
 	date    = "unknown"
 	builtBy = "local"
