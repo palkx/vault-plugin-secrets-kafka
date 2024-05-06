@@ -51,7 +51,7 @@ func (b *kafkaBackend) createCredentials(ctx context.Context, s logical.Storage,
 
 	var credential *kafkaCredential
 
-	credential, err = createCredential(ctx, client, roleEntry.UsernamePrefix)
+	credential, err = createCredential(ctx, client, roleEntry)
 	if err != nil {
 		return nil, fmt.Errorf("error creating Kafka credential: %w", err)
 	}
@@ -70,11 +70,13 @@ func (b *kafkaBackend) createUserCreds(ctx context.Context, req *logical.Request
 	}
 
 	resp := b.Secret(kafkaCredentialType).Response(map[string]interface{}{
-		"password": credential.Password,
-		"username": credential.Username,
+		"password":          credential.Password,
+		"username":          credential.Username,
+		"scram_sha_version": credential.ScramSHAVersion,
 	}, map[string]interface{}{
-		"password": credential.Password,
-		"username": credential.Username,
+		"password":          credential.Password,
+		"username":          credential.Username,
+		"scram_sha_version": credential.ScramSHAVersion,
 	})
 
 	if role.TTL > 0 {

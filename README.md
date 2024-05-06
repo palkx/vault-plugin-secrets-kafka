@@ -28,7 +28,7 @@ To perform local testing run the following commands:
 - [x] Configure basic CI/CD flow
 - [x] Revisit kafka client lifecycle
 - [x] Improve credential revocation during service disruption events
-- [ ] Select SCRAM-SHA version on the plugin config level
+- [x] Select SCRAM-SHA version on the plugin config/role level
 - [x] Specify TLS certificates and CA on the plugin config level
 - [ ] Revisit tests
 - [ ] Revisit acceptance tests

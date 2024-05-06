@@ -48,20 +48,22 @@ var runAcceptanceTests = os.Getenv(envVarRunAccTests) == "1"
 // testEnv creates an object to store and track testing environment
 // resources
 type testEnv struct {
-	BootstrapServers string
-	Username         string
-	Password         string
-	CABundle         string
-	Certificate      string
-	CertificateKey   string
-	UsernamePrefix   string
+	BootstrapServers      string
+	Username              string
+	Password              string
+	CABundle              string
+	Certificate           string
+	CertificateKey        string
+	UsernamePrefix        string
+	ConfigScramSHAVersion string
+	RoleScramSHAVersion   string
 
 	Backend logical.Backend
 	Context context.Context
 	Storage logical.Storage
 
 	// Credentials tracks the generated tokens, to make sure we clean up
-	Credentials []string
+	Credentials []kafkaCredential
 }
 
 // AddConfig adds the configuration to the test backend.
@@ -79,7 +81,22 @@ func (e *testEnv) AddConfig(t *testing.T) {
 			"ca_bundle":         e.CABundle,
 			"certificate":       e.Certificate,
 			"certificate_key":   e.CertificateKey,
+			"scram_sha_version": e.ConfigScramSHAVersion,
 		},
+	}
+	resp, err := e.Backend.HandleRequest(e.Context, req)
+	require.Nil(t, resp)
+	require.Nil(t, err)
+}
+
+// AddConfig adds the configuration to the test backend.
+// Make sure data includes all of the configuration
+// attributes you need and the `config` path!
+func (e *testEnv) DeleteConfig(t *testing.T) {
+	req := &logical.Request{
+		Operation: logical.DeleteOperation,
+		Path:      "config",
+		Storage:   e.Storage,
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)
 	require.Nil(t, resp)
@@ -94,7 +111,8 @@ func (e *testEnv) AddUserTokenRole(t *testing.T) {
 		Path:      "role/test-user-token",
 		Storage:   e.Storage,
 		Data: map[string]interface{}{
-			"username_prefix": e.UsernamePrefix,
+			"username_prefix":   e.UsernamePrefix,
+			"scram_sha_version": e.RoleScramSHAVersion,
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)
@@ -114,19 +132,22 @@ func (e *testEnv) ReadUserCredential(t *testing.T) {
 	require.Nil(t, err)
 	require.NotNil(t, resp)
 
-	if t, ok := resp.Data["username"]; ok {
-		e.Credentials = append(e.Credentials, t.(string))
-	}
-
 	require.NotEmpty(t, resp.Data["username"])
 	require.NotEmpty(t, resp.Data["password"])
+	require.NotEmpty(t, resp.Data["scram_sha_version"])
+
+	e.Credentials = append(e.Credentials, kafkaCredential{
+		Username:        resp.Data["username"].(string),
+		Password:        resp.Data["password"].(string),
+		ScramSHAVersion: resp.Data["scram_sha_version"].(string),
+	})
 }
 
 // CleanupUserTokens removes the tokens
 // when the test completes.
 func (e *testEnv) CleanupUserCredential(t *testing.T) {
 	if len(e.Credentials) == 0 {
-		t.Fatalf("expected 2 credentials, got: %d", len(e.Credentials))
+		t.Fatalf("expected 10 credentials, got: %d", len(e.Credentials))
 	}
 
 	for _, credential := range e.Credentials {
@@ -136,9 +157,11 @@ func (e *testEnv) CleanupUserCredential(t *testing.T) {
 			t.Fatal("fatal getting client")
 		}
 
-		err = deleteCredential(e.Context, client, credential)
+		err = deleteCredential(e.Context, client, credential.Username, credential.ScramSHAVersion)
 		if err != nil {
 			t.Fatalf("error revoking Kafka credentials: %s", err)
 		}
 	}
+
+	e.Credentials = []kafkaCredential{}
 }

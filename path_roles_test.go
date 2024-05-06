@@ -26,9 +26,10 @@ func TestUserRole(t *testing.T) {
 			_, err := testTokenRoleCreate(t, b, s,
 				roleName+strconv.Itoa(i),
 				map[string]interface{}{
-					"username_prefix": usernamePrefix,
-					"ttl":             testTTL,
-					"max_ttl":         testMaxTTL,
+					"username_prefix":   usernamePrefix,
+					"scram_sha_version": scramSHAVersion,
+					"ttl":               testTTL,
+					"max_ttl":           testMaxTTL,
 				})
 			require.NoError(t, err)
 		}
@@ -38,11 +39,12 @@ func TestUserRole(t *testing.T) {
 		require.Len(t, resp.Data["keys"].([]string), 10)
 	})
 
-	t.Run("Create User Role - pass", func(t *testing.T) {
+	t.Run("Create User Role", func(t *testing.T) {
 		resp, err := testTokenRoleCreate(t, b, s, roleName, map[string]interface{}{
-			"username_prefix": usernamePrefix,
-			"ttl":             testTTL,
-			"max_ttl":         testMaxTTL,
+			"username_prefix":   usernamePrefix,
+			"scram_sha_version": scramSHAVersion,
+			"ttl":               testTTL,
+			"max_ttl":           testMaxTTL,
 		})
 
 		require.Nil(t, err)
@@ -57,11 +59,14 @@ func TestUserRole(t *testing.T) {
 		require.Nil(t, resp.Error())
 		require.NotNil(t, resp)
 		require.Equal(t, resp.Data["username_prefix"], usernamePrefix)
+		require.Equal(t, resp.Data["scram_sha_version"], scramSHAVersion)
 	})
+
 	t.Run("Update User Role", func(t *testing.T) {
 		resp, err := testTokenRoleUpdate(t, b, s, map[string]interface{}{
-			"ttl":     "1m",
-			"max_ttl": "5h",
+			"scram_sha_version": SCRAMSHA256,
+			"ttl":               "1m",
+			"max_ttl":           "5h",
 		})
 
 		require.Nil(t, err)
@@ -76,6 +81,7 @@ func TestUserRole(t *testing.T) {
 		require.Nil(t, resp.Error())
 		require.NotNil(t, resp)
 		require.Equal(t, resp.Data["username_prefix"], usernamePrefix)
+		require.Equal(t, resp.Data["scram_sha_version"], SCRAMSHA256)
 	})
 
 	t.Run("Delete User Role", func(t *testing.T) {
