@@ -103,6 +103,11 @@ func (b *kafkaBackend) getClient(ctx context.Context, s logical.Storage) (*kafka
 	b.lock.Lock()
 	unlockFunc = b.lock.Unlock
 
+	// If the client was created during the lock switch, return it
+	if b.client != nil {
+		return b.client, nil
+	}
+
 	config, err := getConfig(ctx, s)
 	if err != nil {
 		return nil, err
