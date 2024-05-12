@@ -106,8 +106,14 @@ func (b *kafkaBackend) credentialRevoke(ctx context.Context, req *logical.Reques
 	return nil, nil
 }
 
-func createCredential(ctx context.Context, c *kafkaClient, roleEntry *kafkaRoleEntry) (*kafkaCredential, error) {
-	username := roleEntry.UsernamePrefix + "-credential-" + uuid.New().String()
+func createCredential(ctx context.Context, c *kafkaClient, roleEntry *kafkaRoleEntry, displayName string) (*kafkaCredential, error) {
+	name := displayName
+
+	if displayName == "" {
+		name = "anonymous"
+	}
+
+	username := roleEntry.UsernamePrefix + "-" + name + "-" + uuid.New().String()
 	password := uuid.New().String()
 	salt := uuid.New().String()
 	mechanism := sarama.SCRAM_MECHANISM_SHA_512
