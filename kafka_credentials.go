@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -19,6 +20,7 @@ const (
 type kafkaCredential struct {
 	Username        string `json:"username"`
 	Password        string `json:"password"`
+	ResourceACLs    string `json:"resource_acls"`
 	ScramSHAVersion string `json:"scram_sha_version"`
 }
 
@@ -36,6 +38,10 @@ func (b *kafkaBackend) kafkaCredential() *framework.Secret {
 				Type:        framework.TypeString,
 				Description: "Kafka User Password",
 			},
+			"resource_acls": {
+				Type:        framework.TypeString,
+				Description: "ACLs created for the user",
+			},
 			"scram_sha_version": {
 				Type:        framework.TypeString,
 				Description: "Kafka Credential SCRAM SHA Version",
@@ -46,7 +52,62 @@ func (b *kafkaBackend) kafkaCredential() *framework.Secret {
 	}
 }
 
-func deleteCredential(ctx context.Context, c *kafkaClient, username string, scramSHAVersion string) error {
+func parseResourceACLs(acls string, principalName string) ([]*sarama.ResourceAcls, error) {
+	var resourceACLs []*sarama.ResourceAcls
+	err := json.Unmarshal([]byte(acls), &resourceACLs)
+	if err != nil {
+		return nil, err
+	}
+	for _, ra := range resourceACLs {
+		if ra.ResourceType == sarama.AclResourceUnknown {
+			return nil, errors.New("received unknown resource type")
+		}
+		if ra.ResourceName == "" {
+			return nil, errors.New("received empty resource name")
+		}
+		if ra.ResourcePatternType == sarama.AclPatternUnknown {
+			return nil, errors.New("received unknown resource pattern type")
+		}
+		if ra.Acls == nil {
+			return nil, errors.New("received empty resource acls")
+		}
+		for _, a := range ra.Acls {
+			if a.Host == "" {
+				return nil, errors.New("received empty host in resource ACL")
+			}
+			if a.Operation == sarama.AclOperationUnknown {
+				return nil, errors.New("received unknown operation in resource ACL")
+			}
+			if a.PermissionType == sarama.AclPermissionUnknown {
+				return nil, errors.New("received unknown permission type in resource ACL")
+			}
+			a.Principal = principalName
+		}
+	}
+	return resourceACLs, nil
+}
+
+func prepareACLFilters(resourceACLs []*sarama.ResourceAcls) ([]sarama.AclFilter, error) {
+	var aclFilters []sarama.AclFilter
+
+	for _, ra := range resourceACLs {
+		for _, a := range ra.Acls {
+			aclFilters = append(aclFilters, sarama.AclFilter{
+				ResourceType:              ra.ResourceType,
+				ResourceName:              &ra.ResourceName,
+				ResourcePatternTypeFilter: ra.ResourcePatternType,
+				Principal:                 &a.Principal,
+				Host:                      &a.Host,
+				Operation:                 a.Operation,
+				PermissionType:            a.PermissionType,
+			})
+		}
+	}
+
+	return aclFilters, nil
+}
+
+func deleteCredential(ctx context.Context, c *kafkaClient, username string, scramSHAVersion string, resourceACLs string) error {
 	if username == "" {
 		return fmt.Errorf("recieved empty username for credential deletion")
 	}
@@ -69,6 +130,27 @@ func deleteCredential(ctx context.Context, c *kafkaClient, username string, scra
 	})
 	if err != nil {
 		return fmt.Errorf("error revoking Kafka credentials: %w", err)
+	}
+
+	if resourceACLs != "" {
+		// Prepare ACLs with generated username
+		userResourceACLs, err := parseResourceACLs(resourceACLs, username)
+		if err != nil {
+			return err
+		}
+
+		aclFilters, err := prepareACLFilters(userResourceACLs)
+		if err != nil {
+			return err
+		}
+
+		// Delete all ACLs
+		for _, filter := range aclFilters {
+			_, err = c.DeleteACL(filter, false)
+			if err != nil {
+				return err
+			}
+		}
 	}
 
 	return nil
@@ -99,7 +181,13 @@ func (b *kafkaBackend) credentialRevoke(ctx context.Context, req *logical.Reques
 		}
 	}
 
-	if err := deleteCredential(ctx, client, username, scramSHAVersion); err != nil {
+	resourceACLs := ""
+	resourceACLsRaw, ok := req.Secret.InternalData["resource_acls"]
+	if ok {
+		resourceACLs, _ = resourceACLsRaw.(string)
+	}
+
+	if err := deleteCredential(ctx, client, username, scramSHAVersion, resourceACLs); err != nil {
 		return nil, err
 	}
 
@@ -131,13 +219,31 @@ func createCredential(ctx context.Context, c *kafkaClient, roleEntry *kafkaRoleE
 			Password:   []byte(password),
 		},
 	})
+
+	if roleEntry.ResourceACLs != "" {
+		// Prepare ACLs with generated username
+		resourceACLs, err := parseResourceACLs(roleEntry.ResourceACLs, username)
+		if err != nil {
+			return nil, err
+		}
+
+		// Create all ACLs
+		err = c.CreateACLs(resourceACLs)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	if err != nil {
 		return nil, fmt.Errorf("error creating Kafka credentials: %w", err)
 	}
 
 	return &kafkaCredential{
-		Username:        username,
-		Password:        password,
+		Username: username,
+		Password: password,
+		// We're saving resource acls from the role instead of credential ACLs
+		// because we won't be able to unmarhal (to save the) and marshal credential ACLs once again
+		ResourceACLs:    roleEntry.ResourceACLs,
 		ScramSHAVersion: roleEntry.ScramSHAVersion,
 	}, nil
 }

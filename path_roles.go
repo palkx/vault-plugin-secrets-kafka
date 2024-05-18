@@ -15,6 +15,7 @@ import (
 type kafkaRoleEntry struct {
 	UsernamePrefix  string        `json:"username_prefix"`
 	ScramSHAVersion string        `json:"scram_sha_version"`
+	ResourceACLs    string        `json:"resource_acls"`
 	TTL             time.Duration `json:"ttl"`
 	MaxTTL          time.Duration `json:"max_ttl"`
 }
@@ -24,6 +25,7 @@ func (r *kafkaRoleEntry) toResponseData() map[string]interface{} {
 	respData := map[string]interface{}{
 		"username_prefix":   r.UsernamePrefix,
 		"scram_sha_version": r.ScramSHAVersion,
+		"resource_acls":     r.ResourceACLs,
 		"ttl":               r.TTL.Seconds(),
 		"max_ttl":           r.MaxTTL.Seconds(),
 	}
@@ -52,6 +54,10 @@ func pathRole(b *kafkaBackend) []*framework.Path {
 				"scram_sha_version": {
 					Type:        framework.TypeString,
 					Description: fmt.Sprintf("Scram SHA Version to use for created credentials. Can be %s, %s. By default it will be set to the backends default value.", SCRAMSHA256, SCRAMSHA512),
+				},
+				"resource_acls": {
+					Type:        framework.TypeString,
+					Description: "ACLs to create for the current role, specified in JSON format. Look in the documentation for examples.",
 				},
 				"ttl": {
 					Type:        framework.TypeDurationSecond,
@@ -207,6 +213,18 @@ func (b *kafkaBackend) pathRolesWrite(ctx context.Context, req *logical.Request,
 
 	if roleEntry.MaxTTL != 0 && roleEntry.TTL > roleEntry.MaxTTL {
 		return logical.ErrorResponse("ttl cannot be greater than max_ttl"), nil
+	}
+
+	// If ACLs are provided, verify that we're able to parse them first
+	if resourceACLsRaw, ok := d.GetOk("resource_acls"); ok {
+		if resourceACLsRaw.(string) == "" {
+			return nil, fmt.Errorf("resource_acls cannot be empty")
+		}
+		_, err := parseResourceACLs(resourceACLsRaw.(string), roleEntry.UsernamePrefix)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse resource_acls: %s", err)
+		}
+		roleEntry.ResourceACLs = resourceACLsRaw.(string)
 	}
 
 	if err := setRole(ctx, req.Storage, name.(string), roleEntry); err != nil {
