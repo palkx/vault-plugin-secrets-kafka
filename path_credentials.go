@@ -69,14 +69,17 @@ func (b *kafkaBackend) createUserCreds(ctx context.Context, req *logical.Request
 		return nil, err
 	}
 
+	// Return the secret to the caller
+	// First interface - actual responce
+	// Second interface - information to save in the vault for secret handling
 	resp := b.Secret(kafkaCredentialType).Response(map[string]interface{}{
-		"password":          credential.Password,
-		"username":          credential.Username,
-		"scram_sha_version": credential.ScramSHAVersion,
+		"password": credential.Password,
+		"username": credential.Username,
 	}, map[string]interface{}{
 		"password":          credential.Password,
 		"username":          credential.Username,
 		"scram_sha_version": credential.ScramSHAVersion,
+		"resource_acls":     credential.ResourceACLs,
 	})
 
 	if role.TTL > 0 {

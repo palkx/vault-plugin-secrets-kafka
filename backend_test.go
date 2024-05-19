@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/IBM/sarama"
 	"github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/sdk/logical"
 	"github.com/stretchr/testify/require"
@@ -57,6 +58,7 @@ type testEnv struct {
 	UsernamePrefix        string
 	ConfigScramSHAVersion string
 	RoleScramSHAVersion   string
+	RoleResourceACLs      string
 
 	Backend logical.Backend
 	Context context.Context
@@ -113,6 +115,7 @@ func (e *testEnv) AddUserTokenRole(t *testing.T) {
 		Data: map[string]interface{}{
 			"username_prefix":   e.UsernamePrefix,
 			"scram_sha_version": e.RoleScramSHAVersion,
+			"resource_acls":     e.RoleResourceACLs,
 		},
 	}
 	resp, err := e.Backend.HandleRequest(e.Context, req)
@@ -134,12 +137,61 @@ func (e *testEnv) ReadUserCredential(t *testing.T) {
 
 	require.NotEmpty(t, resp.Data["username"])
 	require.NotEmpty(t, resp.Data["password"])
-	require.NotEmpty(t, resp.Data["scram_sha_version"])
+
+	b := e.Backend.(*kafkaBackend)
+	client, err := b.getClient(e.Context, e.Storage)
+	if err != nil {
+		t.Fatal("fatal getting client")
+	}
+
+	users, err := client.DescribeUserScramCredentials([]string{resp.Data["username"].(string)})
+	if err != nil {
+		t.Fatalf("fatal describing user: %s", err)
+	}
+
+	for _, v := range users {
+		require.Equal(t, resp.Data["username"], v.User)
+		require.Equal(t, v.ErrorCode, sarama.ErrNoError)
+		for _, ci := range v.CredentialInfos {
+			switch e.RoleScramSHAVersion {
+			case SCRAMSHA256:
+				require.Equal(t, ci.Mechanism, sarama.SCRAM_MECHANISM_SHA_256)
+			case SCRAMSHA512:
+				require.Equal(t, ci.Mechanism, sarama.SCRAM_MECHANISM_SHA_512)
+			}
+			require.Equal(t, ci.Iterations, int32(8192))
+		}
+	}
+
+	resourceACLs, err := parseResourceACLs(e.RoleResourceACLs, resp.Data["username"].(string))
+	if err != nil {
+		t.Fatalf("error parsing resource ACLs: %s", err)
+	}
+	ACLFilters, err := prepareACLFilters(resourceACLs)
+	if err != nil {
+		t.Fatalf("error preparing ACL filters: %s", err)
+	}
+	require.Len(t, ACLFilters, 4)
+
+	for _, filter := range ACLFilters {
+		acl, err := client.ListAcls(filter)
+		if err != nil {
+			t.Fatalf("error listing ACLs: %s", err)
+		}
+		require.Len(t, acl, 1)
+		require.NotNil(t, acl)
+		require.NotEmpty(t, acl[0].ResourceType)
+		require.NotEmpty(t, acl[0].Resource)
+		require.NotEmpty(t, acl[0].ResourcePatternType)
+		require.NotEmpty(t, acl[0].Acls[0].Operation)
+		require.NotEmpty(t, acl[0].Acls[0].Host)
+		require.NotEmpty(t, acl[0].Acls[0].PermissionType)
+		require.Equal(t, acl[0].Acls[0].Principal, resp.Data["username"].(string))
+	}
 
 	e.Credentials = append(e.Credentials, kafkaCredential{
-		Username:        resp.Data["username"].(string),
-		Password:        resp.Data["password"].(string),
-		ScramSHAVersion: resp.Data["scram_sha_version"].(string),
+		Username: resp.Data["username"].(string),
+		Password: resp.Data["password"].(string),
 	})
 }
 
@@ -150,16 +202,34 @@ func (e *testEnv) CleanupUserCredential(t *testing.T) {
 		t.Fatalf("expected 10 credentials, got: %d", len(e.Credentials))
 	}
 
-	for _, credential := range e.Credentials {
-		b := e.Backend.(*kafkaBackend)
-		client, err := b.getClient(e.Context, e.Storage)
-		if err != nil {
-			t.Fatal("fatal getting client")
-		}
+	b := e.Backend.(*kafkaBackend)
+	client, err := b.getClient(e.Context, e.Storage)
+	if err != nil {
+		t.Fatal("fatal getting client")
+	}
 
-		err = deleteCredential(e.Context, client, credential.Username, credential.ScramSHAVersion)
+	for _, credential := range e.Credentials {
+		err = deleteCredential(e.Context, client, credential.Username, e.RoleScramSHAVersion, e.RoleResourceACLs)
 		if err != nil {
 			t.Fatalf("error revoking Kafka credentials: %s", err)
+		}
+
+		resourceACLs, err := parseResourceACLs(e.RoleResourceACLs, credential.Username)
+		if err != nil {
+			t.Fatalf("error parsing resource ACLs: %s", err)
+		}
+		ACLFilters, err := prepareACLFilters(resourceACLs)
+		if err != nil {
+			t.Fatalf("error preparing ACL filters: %s", err)
+		}
+		require.Len(t, ACLFilters, 4)
+
+		for _, filter := range ACLFilters {
+			acl, err := client.ListAcls(filter)
+			if err != nil {
+				t.Fatalf("error listing ACLs: %s", err)
+			}
+			require.Len(t, acl, 0)
 		}
 	}
 
