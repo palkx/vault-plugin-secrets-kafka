@@ -1,3 +1,4 @@
+version: 2
 builds:
   - binary: "kafka"
     main: ./cmd/vault-plugin-secrets-kafka/
