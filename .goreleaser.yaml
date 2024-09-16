@@ -43,4 +43,4 @@ signs:
       - "--detach-sign"
       - "${artifact}"
 snapshot:
-  name_template: "{{ .Version }}-next"
+  version_template: "{{ .Version }}-next"
