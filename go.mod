@@ -1,6 +1,6 @@
 module github.com/palkx/vault-plugin-secrets-kafka
 
-go 1.22.7
+go 1.23.3
 
 require (
 	github.com/IBM/sarama v1.43.3
