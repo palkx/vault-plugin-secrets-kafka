@@ -65,7 +65,7 @@ x-kafka-env: &kafka-env
 
 services:
   builder:
-    image: docker.io/golang:1.22.3-alpine
+    image: docker.io/golang:1.23.3-alpine
     entrypoint: /bin/ash
     environment:
       APP_VERSION: 0.0.4

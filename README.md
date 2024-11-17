@@ -111,7 +111,7 @@ To compact this json you can use `jq`. For example: `jq -rcM '.' acls.json`
 
 ## Local development
 
-Currently we're using go 1.22.x.
+Currently we're using go 1.23.x.
 
 To perform local build and test run the following commands:
 
